@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>YouTube Video with Timestamps</title>
+  <style>
+    body {
+      display: flex;
+      flex-direction: row;
+      margin: 0;
+      height: 100vh;
+    }
+    #video-container {
+      flex: 3;
+      background-color: black;
+    }
+    #video {
+      width: 100%;
+      height: 100%;
+    }
+    #timestamps {
+      flex: 1;
+      padding: 10px;
+      background-color: #333;
+      color: white;
+      overflow-y: auto;
+    }
+    .timestamp {
+      cursor: pointer;
+      padding: 5px;
+      margin-bottom: 5px;
+      background-color: #555;
+      border-radius: 4px;
+      transition: background-color 0.3s;
+    }
+    .timestamp:hover {
+      background-color: #777;
+    }
+    .active {
+      background-color: #ff8800;
+    }
+    #input-area {
+      margin-top: 10px;
+      color: white;
+    }
+    textarea {
+      width: 100%;
+      height: 100px;
+      background-color: #222;
+      color: white;
+      border: 1px solid #444;
+      border-radius: 4px;
+      padding: 5px;
+      resize: none;
+    }
+    button {
+      margin-top: 5px;
+      padding: 8px;
+      background-color: #555;
+      color: white;
+      border: none;
+      cursor: pointer;
+      border-radius: 4px;
+    }
+    button:hover {
+      background-color: #777;
+    }
+  </style>
+</head>
+<body>
+
+<div id="video-container">
+  <div id="video-wrapper" style="height: 100%">
+    <iframe id="video" src="" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>
+  </div>
+</div>
+
+<div id="timestamps">
+  <h3>Jump to Timestamps</h3>
+  <button onclick="askForVideoID()">Set Video ID</button>
+  <div id="timestamp-list"></div>
+  
+  <div id="input-area">
+    <h4>Paste Timestamps Here</h4>
+    <textarea id="timestamp-input" placeholder="Paste timestamps here, one per line"></textarea>
+    <button onclick="parseTimestamps()">Load Timestamps</button>
+  </div>
+</div>
+
+<script>
+  // Load YouTube IFrame API
+  var tag = document.createElement('script');
+  tag.src = "https://www.youtube.com/iframe_api";
+  var firstScriptTag = document.getElementsByTagName('script')[0];
+  firstScriptTag.parentNode.insertBefore(tag, firstScriptTag);
+
+  let player;
+  let timestamps = [];
+
+  function onYouTubeIframeAPIReady() {
+    player = new YT.Player('video', {
+      events: {
+        'onReady': () => requestAnimationFrame(updateActiveTimestamp),
+      }
+    });
+  }
+
+  function askForVideoID() {
+    const videoID = prompt("Please enter the YouTube Video ID:");
+    if (videoID) {
+      // Reload the iframe with new video ID by reinitializing the player
+      const videoWrapper = document.getElementById("video-wrapper");
+      videoWrapper.innerHTML = `<iframe id="video" src="https://www.youtube.com/embed/${videoID}?enablejsapi=1" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+      
+      // Reinitialize the player for the new iframe
+      onYouTubeIframeAPIReady();
+    }
+  }
+
+  function seekTo(seconds) {
+    if (player && player.seekTo && player.getPlayerState() !== -1) { // Ensure player is loaded
+      player.seekTo(seconds, true);
+      player.playVideo(); // Ensures the video resumes playing after seeking
+    }
+  }
+
+  function parseTimestamps() {
+    const input = document.getElementById("timestamp-input").value;
+    const lines = input.split("\n");
+    const timestampList = document.getElementById("timestamp-list");
+    timestampList.innerHTML = ""; // Clear existing timestamps
+    timestamps = [];
+
+    lines.forEach(line => {
+      const match = line.match(/(?:(\d+):)?(\d+):(\d+)\s*-\s*(.+)/);
+      if (match) {
+        const hours = parseInt(match[1] || 0);
+        const minutes = parseInt(match[2]);
+        const seconds = parseInt(match[3]);
+        const title = match[4].trim();
+        const totalSeconds = hours * 3600 + minutes * 60 + seconds;
+
+        const div = document.createElement("div");
+        div.className = "timestamp";
+        div.textContent = `${match[1] ? match[1] + ":" : ""}${match[2]}:${match[3]} - ${title}`;
+        div.onclick = () => seekTo(totalSeconds);
+
+        timestampList.appendChild(div);
+        timestamps.push({ element: div, time: totalSeconds });
+      }
+    });
+  }
+
+  function updateActiveTimestamp() {
+    if (!player || !player.getCurrentTime) return; // Ensure the player is ready
+
+    const currentTime = player.getCurrentTime();
+    timestamps.forEach(({ element, time }, index) => {
+      if (currentTime >= time && (index === timestamps.length - 1 || currentTime < timestamps[index + 1].time)) {
+        timestamps.forEach(({ element }) => element.classList.remove("active"));
+        element.classList.add("active");
+      }
+    });
+    requestAnimationFrame(updateActiveTimestamp); // Continuously update the active timestamp
+  }
+
+</script>
+
+</body>
+</html>
